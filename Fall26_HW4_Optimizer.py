@@ -138,7 +138,7 @@ class SGDMomentum:
     def step(self, gradient:np.array, x:np.array, t:int):
         new_x = []
         ############ TODO: Complete the step function ############
-        if t == 0:
+        if "velocity" not in self.state or self.state["velocity"].shape != x.shape:
             self.state["velocity"] = np.zeros_like(x)
 
         self.state["velocity"] = self.beta * self.state["velocity"] + (1 - self.beta) * gradient
@@ -174,7 +174,7 @@ class Adam:
     def step(self, gradient:np.array, x:np.array, t:np.array):
         new_x = []
         ################### TODO: Complete the function below  ###################
-        if t == 0: 
+        if "v" not in self.state or "s" not in self.state or self.state["v"].shape != x.shape or self.state["s"].shape != x.shape:
             self.state["v"] = np.zeros_like(x)
             self.state["s"] = np.zeros_like(x)
 
@@ -237,9 +237,9 @@ class AdamW:
     def step(self, gradient:np.array, x:np.array, t:np.array):
         new_x = []
         ################### TODO: Complete the function below  ###################
-        if t == 0: 
-            self.state["v"] = np.zeros_like(x)
-            self.state["s"] = np.zeros_like(x)
+        if "v" not in self.state or "s" not in self.state or self.state["v"].shape != x.shape or self.state["s"].shape != x.shape:
+                    self.state["v"] = np.zeros_like(x)
+                    self.state["s"] = np.zeros_like(x)
 
         self.state["v"] = self.beta1 * self.state["v"] + (1 - self.beta1) * gradient
         self.state["s"] = self.beta2 * self.state["s"] + (1 - self.beta2) * (gradient ** 2)
@@ -345,19 +345,22 @@ def visualize_classification_data(features, labels, title: str = "Flower Dataset
 
 # %%
 ######################## YOUR (COMPLETED) CODE FROM WEEK 2########################
-def relu(x: np.array) -> np.array:
+def relu(x: np.typing.ArrayLike) -> np.typing.ArrayLike:
+    res = x
     ##########################################
     ## TODO: Compute ReLU activation,
-    res = np.zeros_like(res)
+    res = np.maximum(x, 0)
     ##########################################
     assert res.shape == x.shape
     return res
 
-def relu_derivative(x: np.array) -> np.array:
+
+def relu_derivative(x: np.typing.ArrayLike) -> np.typing.ArrayLike:
+    res = x
     ##########################################
     ## TODO: Compute the gradient of ReLU with respect to its inputs
-    # res = ...
-    res = np.zeros_like(res)
+    ## assume derivative at 0 to be 0.
+    res = np.where(res > 0, 1, 0)
     ##########################################
     assert res.shape == x.shape
     return res
@@ -365,6 +368,10 @@ def relu_derivative(x: np.array) -> np.array:
 
 class Layer:
     def __init__(self, input_dim, output_dim):
+        # We usually initialize the network weights randomly.
+        # In the next lectures you will see that it is an important aspect for neural network training.
+        # Getting the initialization right can be tricky; for now we provided you with a stable initialization scheme.
+        # You can experiment with different initialization strategies later in the class.
         # Don't change this!
         self.weights = np.random.randn(
             output_dim, input_dim
@@ -372,36 +379,57 @@ class Layer:
         self.biases = np.zeros((output_dim, 1))
 
     def __call__(self, X):
+        res = X
         ##########################################
         ## TODO: Compute the forward pass of the MLP
         ## Your Code
-        # Compute (Wx + b)
-        return X
+        # Compute ( W X + b)
+        res = self.weights @ X + self.biases
         ###########################################
+        return res
 
 class ReLUMLP:
-    def __init__(self, layer_widths):
+    def __init__(self, layer_widths: List[int]):
         self.layers = []
         ##########################################
         ## TODO: Create the layers of MLP
+        ## Hint: This is the same as LinearMLP initialization
+        for i in range(len(layer_widths) - 1):
+            self.layers.append(Layer(layer_widths[i], layer_widths[i + 1])
+    )
         ##########################################
 
-    def __call__(self, X):
+    def __call__(self, X: np.typing.ArrayLike) -> np.typing.ArrayLike:
         res = X
         ##########################################
         ## TODO: Implement forward pass of the ReLU MLP
         ## Hint: Don't forget to apply ReLU after each layer except the last
+        for i, layer in enumerate(self.layers):
+            res = layer(res)
+            if i < len(self.layers) - 1:
+                res = relu(res)
         ##########################################
         return res
 
 def compute_relu_mlp_forward_passes(
-    network: ReLUMLP, inputs: np.array
-) -> Tuple[List[np.array], List[np.array]]:
+    network: ReLUMLP, inputs: np.typing.ArrayLike
+) -> Tuple[List[np.typing.ArrayLike], List[np.typing.ArrayLike]]:
     layer_outputs = [inputs]
     pre_activations = [inputs]
     ##########################################
     ## TODO: Forward pass - compute each layer's pre-activations (h_l) and activations (z_l, after ReLU)
     # and store them for later use
+    for i, layer in enumerate(network.layers):
+        h = layer(layer_outputs[-1])
+        pre_activations.append(h) 
+
+        if i < len(network.layers) - 1:
+            layer_outputs.append(relu(h))
+        else:
+            layer_outputs.append(h)
+
+
+
     ##########################################
     assert len(layer_outputs) == len(network.layers) + 1, (
         "Layer outputs should match number of layers"
@@ -411,21 +439,31 @@ def compute_relu_mlp_forward_passes(
     )
     return layer_outputs, pre_activations
 
+
 def compute_relu_mlp_partial_derivatives(
-    network: ReLUMLP, cost_partials: List[np.array], pre_activations
+    network: ReLUMLP, cost_partials: List[np.typing.ArrayLike], pre_activations
 ):
     for ind, (layer, pre_activation) in enumerate(
         zip(reversed(network.layers), reversed(pre_activations))
     ):
         ##########################################
-        ## TODO: Compute the error signal propagated to each layer
-        ## Hint: Cost partials: d z_l / d z_{l-1} = d z_l / d h_l * d h_l / d z_{l-1}
-        pass
+        ## TODO: Compute the error signal propa gated to each layer
+        ## Hint: After reversal, cost_partials[i]: d L / d z_i
+        ## Hint: Cost partials: d L / d z_l = d L / d z_{l+1} * d z_{l+1} / d h_{l+1} * d h_{l+1} / d z_l
+        ## where h_l is the pre-activation
+        dL = cost_partials[-1]
+        if ind != 0:
+            dL = dL * relu_derivative(pre_activation)
+
+        cost_partials.append(layer.weights.T @ dL)
+
+
     ##########################################
     cost_partials.reverse()
     assert len(cost_partials) == len(network.layers) + 1, (
         "Cost partials should have one more element than layers"
     )
+
 
 def compute_relu_mlp_parameter_updates(
     cost_partials: List[np.array],
@@ -437,10 +475,25 @@ def compute_relu_mlp_parameter_updates(
     bias_gradients = []
     ##########################################
     ## TODO: Compute weight gradient
-    for cost_partial, layer_output, pre_activation in zip(
-        cost_partials[1:], layer_outputs[:-1], pre_activations[:-1]
+    for i, (cost_partial, layer_output, pre_activation) in enumerate(
+        zip(
+            cost_partials[1:],
+            layer_outputs[:-1],
+            pre_activations[:-1],
+        )
     ):
-        pass
+        partial = cost_partial
+
+        # Apply ReLU derivative for hidden layers
+        if i < len(cost_partials) - 2:
+            partial = partial * relu_derivative(pre_activations[i + 1])
+
+        weight_gradients.append(partial @ layer_output.T)
+
+        bias_gradients.append(
+            np.sum(partial, axis=1, keepdims=True)
+        )
+
     ##########################################
     ## TODO: Compute bias gradient
     ##########################################
@@ -492,7 +545,13 @@ def update_parameters(
     ##########################################
     # Hint: 1. Call the optimizer step function once for the training step,
     #       2. Then assign the returned updated parameters back to the corresponding layers.
-    pass
+    for i, layer in enumerate(network.layers):
+        layer.weights = optimizer.step(weight_gradients[i], layer.weights, timestep)
+
+        layer.biases = optimizer.step(bias_gradients[i], layer.biases, timestep)
+
+
+
     ##########################################
 
 # %%
@@ -593,7 +652,12 @@ def init_glorot(mlp, SEED=42):
     np.random.seed(SEED) ## DO NOT MODIFY THE SEED
     for l in mlp.layers:
     ################## YOUR CODE ##################
-        pass
+        n_in = l.weights.shape[1]
+        n_out = l.weights.shape[0]
+
+        lim = np.sqrt(6 / (n_in + n_out))
+
+        l.weights = np.random.uniform(-lim, lim, size = l.weights.shape)
     ###############################################
     return mlp
 
