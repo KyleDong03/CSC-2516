@@ -117,7 +117,7 @@ plt.plot(out[:, 0], out[:, 1], '-')
 # %%
 ##################### FOR ANSWER FOR SGD HYPERPARAMETER #####################
 PART1_SGD_HYPERPARAMETER = {
-    'eta': np.random.rand(1)[0]
+    'eta': 0.08
 }
 #############################################################################
 
@@ -141,7 +141,7 @@ class SGDMomentum:
         if "velocity" not in self.state or self.state["velocity"].shape != x.shape:
             self.state["velocity"] = np.zeros_like(x)
 
-        self.state["velocity"] = self.beta * self.state["velocity"] + (1 - self.beta) * gradient
+        self.state["velocity"] = self.beta * self.state["velocity"] + gradient
 
         new_x = x - self.eta * self.state["velocity"]
 
@@ -151,8 +151,8 @@ class SGDMomentum:
 # %%
 ##################### YOUR ANSWER FOR SGDMOMENTUM HYPERPARAMETER #############
 PART1_SGDMOMENTUM_HYPERPARAMETER = {
-    'eta': np.random.rand(1)[0],
-    'beta': np.random.rand(1)[0],
+    'eta': 0.03,
+    'beta': 0.7,
 }
 #############################################################################
 
@@ -193,10 +193,10 @@ class Adam:
 # %%
 ##################### FOR Grading #####################
 PART1_ADAM_HYPERPARAMETER = {
-    'eta': np.random.rand(1)[0],
-    'beta1': np.random.rand(1)[0],
-    'beta2': np.random.rand(1)[0],
-    'epsilon': np.random.rand(1)[0]
+    'eta': 0.2,
+    'beta1': 0.5,
+    'beta2': 0.999,
+    'epsilon': 1e-8
 }
 #######################################################
 
@@ -256,11 +256,11 @@ class AdamW:
 # %%
 ##################### FOR Grading #####################
 PART1_ADAMW_HYPERPARAMETER = {
-    'eta': np.random.rand(1)[0],
-    'beta1': np.random.rand(1)[0],
-    'beta2': np.random.rand(1)[0],
-    'epsilon':np.random.rand(1)[0],
-    'weight_decay':np.random.rand(1)[0]
+    'eta': 0.2,
+    'beta1': 0.5,
+    'beta2': 0.999,
+    'epsilon':1e-8,
+    'weight_decay':0.1
 }
 #######################################################
 
@@ -592,10 +592,10 @@ NUM_STEPS=100
 NUM_CLASSES=2
 ################## YOUR HYPERPARAMETER SETTING HERE ########################
 BEST_OPTIMIZER_SETTING_CASE1 = {
-    'SGD': SGD(eta=np.random.rand(1)[0]),
-    'SGDMomentum': SGDMomentum(eta=np.random.rand(1)[0], beta=np.random.rand(1)[0]),
-    'Adam': Adam(eta=np.random.rand(1)[0], beta1=np.random.rand(1)[0], beta2=np.random.rand(1)[0], epsilon=np.random.rand(1)[0]),
-    'AdamW': AdamW(eta=np.random.rand(1)[0], beta1=np.random.rand(1)[0], beta2=np.random.rand(1)[0], epsilon=np.random.rand(1)[0], weight_decay=np.random.rand(1)[0])
+    'SGD': SGD(eta=1.0),
+    'SGDMomentum': SGDMomentum(eta=0.3, beta=0.9),
+    'Adam': Adam(eta=0.05, beta1=0.9, beta2=0.999, epsilon=1e-8),
+    'AdamW': AdamW(eta=0.05, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.01)
 }
 ############################################################################
 
@@ -665,10 +665,10 @@ def init_glorot(mlp, SEED=42):
 NUM_STEPS=100
 ############################## YOUR HYPERPAREMTER HERE (not graded) ##############################
 BEST_OPTIMIZER_SETTING_CASE2={
-    'SGD': SGD(eta=np.random.rand(1)[0]),
-    'SGDMomentum': SGDMomentum(eta=np.random.rand(1)[0], beta=np.random.rand(1)[0]),
-    'Adam': Adam(eta=np.random.rand(1)[0], beta1=np.random.rand(1)[0], beta2=np.random.rand(1)[0], epsilon=np.random.rand(1)[0]),
-    'AdamW': AdamW(eta=np.random.rand(1)[0], beta1=np.random.rand(1)[0], beta2=np.random.rand(1)[0], epsilon=np.random.rand(1)[0], weight_decay=np.random.rand(1)[0])
+    'SGD': SGD(eta=1.0),
+    'SGDMomentum': SGDMomentum(eta=0.3, beta=0.9),
+    'Adam': Adam(eta=0.05, beta1=0.9, beta2=0.999, epsilon=1e-8),
+    'AdamW': AdamW(eta=0.05, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.01)
 }
 ######################################################################################
 
