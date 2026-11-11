@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Lecture 8 Transformer Guide</title>
+<style>
+/* Layout: one reading column, with an interactive panel after each concept.
+   Palette: warm paper, ink, and one teal accent for attention weights. */
+:root {
+  --bg: #f7f5f0; --fg: #1d1c1a; --muted: #6b675f; --card: #ffffff;
+  --line: #e2ddd2; --accent: #0f7a6e; --accent-soft: #d6ede9; --warn: #b4531c;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161614; --fg: #ece9e2; --muted: #a09b90; --card: #1f1e1b;
+    --line: #37352f; --accent: #5fd0bf; --accent-soft: #1d3f3a; --warn: #f0a071;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161614; --fg: #ece9e2; --muted: #a09b90; --card: #1f1e1b;
+  --line: #37352f; --accent: #5fd0bf; --accent-soft: #1d3f3a; --warn: #f0a071;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 24px; padding-bottom: 48px; margin: 0; }
+main { max-width: 760px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; }
+h1 { font-family: var(--serif); font-size: clamp(28px, 6vw, 40px); margin: 8px 0 6px; }
+h2 { font-family: var(--serif); font-size: clamp(22px, 4.5vw, 28px); margin: 0 0 10px; }
+h3 { font-size: 16px; margin: 18px 0 6px; }
+p, li { max-width: 65ch; }
+.lede { color: var(--muted); font-size: 16px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+section { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--line); }
+.why { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-size: 15px; }
+.why strong { color: var(--accent); }
+.terms { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--card); font-size: 15px; }
+.terms dt { font-weight: 600; margin-top: 8px; }
+.terms dt:first-child { margin-top: 0; }
+.terms dd { margin: 2px 0 0 0; color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 14px 0; }
+.formula { font-family: var(--mono); font-size: 14px; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; overflow-x: auto; white-space: pre; margin: 10px 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 8px 0 12px; }
+label { font-size: 14px; color: var(--muted); }
+input[type=range] { width: min(220px, 60vw); accent-color: var(--accent); }
+button { font: inherit; font-size: 14px; color: var(--fg); background: var(--card); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tokens { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.tok { font-family: var(--mono); font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); cursor: pointer; }
+.tok.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.bars { display: grid; gap: 6px; margin-top: 8px; }
+.bar-row { display: grid; grid-template-columns: 72px 1fr 56px; gap: 8px; align-items: center; font-family: var(--mono); font-size: 13px; }
+.track { height: 16px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+.fill { height: 100%; background: var(--accent); transition: width .25s ease; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+.out { font-family: var(--mono); font-size: 14px; background: var(--bg); border-radius: 8px; padding: 10px; overflow-x: auto; }
+.out b { color: var(--accent); font-weight: 600; }
+.ans { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+input[type=number], input[type=text] { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg); }
+input[type=number] { width: 110px; }
+.feedback { font-size: 14px; min-height: 1.4em; }
+.ok { color: var(--accent); } .no { color: var(--warn); }
+details { margin-top: 10px; }
+summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.pipe { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; margin: 10px 0; }
+.pipe span { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--card); }
+.pipe i { font-style: normal; color: var(--muted); }
+.hint { font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">CSC 2516 · Lecture 8</p>
+<h1>The Transformer, step by step</h1>
+<p class="lede">An interactive guide to the lecture: attention, self-attention, the transformer block, and the counts (parameters and multiplications) that show up on quizzes. Each section has something you can click or edit.</p>
+
+<section id="terms">
+<p class="eyebrow">Before you start</p>
+<h2>Words you will see</h2>
+<dl class="terms">
+  <dt>Vector</dt><dd>A list of numbers, such as [0.9, 0.1]. A token (a word or piece of a word) is represented as a vector.</dd>
+  <dt>Matrix</dt><dd>A rectangular table of numbers. Multiplying a matrix by a vector gives a new vector. A matrix with r rows and c columns turns a length-c vector into a length-r vector.</dd>
+  <dt>Dot product</dt><dd>Multiply matching entries and add them up. [a, b] · [c, d] = a·c + b·d. A bigger dot product means the two vectors point in more similar directions.</dd>
+  <dt>Softmax</dt><dd>Turns a list of scores into weights. Raise e to each score, then divide each by the total, so every weight is positive and the weights sum to 1. Bigger scores get more weight.</dd>
+  <dt>Parameter</dt><dd>One number the model learns during training. A weight matrix is a block of parameters, and counting parameters means counting every entry in every learned matrix.</dd>
+  <dt>Residual connection</dt><dd>Adding a sublayer's input back to its output: f(x) + x. The + x is a shortcut that carries the input past the sublayer.</dd>
+  <dt>Layer norm</dt><dd>Rescales one token's numbers so they have mean 0 and a consistent spread. Defined properly in Part 6.</dd>
+  <dt>Index letters</dt><dd>i and j are positions in the sequence. i is usually the token asking a question (the query). j is the token being looked at (the key).</dd>
+</dl>
+</section>
+
+<!-- ============ ATTENTION ============ -->
+<section id="attention">
+<p class="eyebrow">Part 1</p>
+<h2>What is attention?</h2>
+<p>Attention is a <strong>lookup that blends results</strong>. A normal dictionary lookup takes a query, finds one exact matching key, and returns that key's value. Attention does the same thing, except it compares the query with <em>every</em> key, turns those comparisons into weights, and returns a weighted average of all the values.</p>
+<p>Each item plays one role:</p>
+<ul>
+  <li><strong>Query</strong>: "what am I looking for?"</li>
+  <li><strong>Key</strong>: "how can I be found?"</li>
+  <li><strong>Value</strong>: "what do I give you if you pick me?"</li>
+</ul>
+<p>The model learns all three from the data, so it learns what to look for, how to advertise, and what to pass along. The lookup is <em>soft</em>, meaning it blends many values with fractional weights instead of choosing one. Every step is a smooth formula, so training can use gradient descent (nudge each learned number slightly in the direction that lowers the error) on all of them.</p>
+
+<h3>The three steps</h3>
+<div class="formula">1. score:   a_ij = how well query i matches key j     (dot product, scaled)
+2. weight:  w_ij = softmax over j of a_ij             (weights add up to 1)
+3. output:  out_i = sum over j of  w_ij * v_j         (weighted average of values)</div>
+<p>The lecture's score is a_ij = q_i · k_j / √d_k. Here d_k is the length of each key vector. Dividing by √d_k is there because longer vectors give bigger dot products, and bigger scores make softmax put almost all its weight on a single item. Dividing by √d_k keeps the scores in a range where softmax still spreads its weight across items.</p>
+
+<h3>A tiny worked example, with 2 tokens and vectors of length 2</h3>
+<p>Say the query for token 1 is q_1 = [1, 0], and the keys are k_1 = [1, 0] and k_2 = [0, 1]. Let d_k = 2.</p>
+<div class="formula">Step 1, scores:   a_11 = [1,0]·[1,0] / √2 = 1 / 1.41 = 0.71
+                  a_12 = [1,0]·[0,1] / √2 = 0 / 1.41 = 0.00
+Step 2, softmax:  e^0.71 = 2.03,  e^0 = 1.00,  total = 3.03
+                  w_11 = 2.03 / 3.03 = 0.67,  w_12 = 1.00 / 3.03 = 0.33
+Step 3, output:   0.67 · v_1 + 0.33 · v_2    (a blend of the two values)</div>
+<p>Token 1 matches its own key better, so it gets 67% of the weight. That is the whole mechanism. The widget below runs the same steps on five words.</p>
+
+<h3>Try it: which keys win?</h3>
+<p class="hint">Click a word to make it the query. The 2-D vectors are invented for the demo. Each row of bars shows the softmax weights for the chosen query, and they add up to 1.</p>
+<div class="card">
+  <div class="controls" id="attnQ"></div>
+  <div class="bars" id="attnBars"></div>
+  <div class="out" id="attnOut" style="margin-top:12px"></div>
+</div>
+</section>
+
+<!-- ============ SELF-ATTENTION ============ -->
+<section id="self-attention">
+<p class="eyebrow">Part 2</p>
+<h2>What is self-attention?</h2>
+<p>Self-attention is attention where the queries, keys and values all come from the <strong>same sequence</strong>. Every token looks at every token in its own sentence and decides how much to borrow from each. In "The animal did not cross the street because it was tired", the word "it" can attend strongly to "animal" and pull in that meaning.</p>
+<p>Each token x_i is a list of d numbers. The model makes three versions of it with learned matrices. A matrix W_Q with d_k rows and d columns, times x_i, gives a list of d_k numbers. So the matrices are:</p>
+<div class="formula">q_i = W_Q x_i     W_Q has d_k rows and d columns
+k_j = W_K x_j     W_K has d_k rows and d columns
+v_j = W_V x_j     W_V has d_v rows and d columns
+
+a_ij  = q_i · k_j / √d_k                 for every pair (i, j)
+out_i = sum over j of softmax_j(a_i) * v_j</div>
+<p>Two things make this powerful. First, the attention pattern is <strong>computed from the data</strong>, not fixed in advance like a convolution's filter. Second, every position is computed at once. The full score table (all pairs i, j) comes out of a few matrix multiplies, which is why transformers train quickly on GPUs.</p>
+<div class="why"><strong>The trade-off:</strong> the score table has one entry per pair of positions, so its size grows with the square of the sequence length (T²). Part 8 covers this.</div>
+</section>
+
+<!-- ============ SELF-ATTENTION DEMO ============ -->
+<section id="demo">
+<p class="eyebrow">Part 3</p>
+<h2>Self-attention on a sentence</h2>
+<p class="hint">The vectors below are invented for this demo (they are not learned). "it" is set close to "animal" on purpose, so the pattern is easy to see. Click a word to make it the query and read its row of weights.</p>
+<div class="card">
+  <div class="tokens" id="sentence"></div>
+  <div class="bars" id="selfBars"></div>
+  <div class="out" id="selfOut" style="margin-top:12px"></div>
+</div>
+</section>
+
+<!-- ============ MULTI-HEAD ============ -->
+<section id="multihead">
+<p class="eyebrow">Part 4</p>
+<h2>Multi-head self-attention</h2>
+<p>One attention pattern can capture only one kind of relationship. Multi-head self-attention runs H attention operations side by side. Each head has its own W_Q, W_K and W_V, so each can learn a different pattern. One head might track which noun a pronoun refers to, and another might track the word right before. The head outputs are glued end to end into one longer list (called concatenating), and one more learned matrix mixes them into the final output.</p>
+<p>Each head works on a slice of the model's width. With model width 512 and H = 8 heads, each head uses 512 / 8 = 64 numbers.</p>
+<p><strong>Grouped-query attention (GQA)</strong> keeps all the query heads but lets several query heads share one set of keys and values. During text generation, the model stores each past token's keys and values in memory so it does not recompute them. That stored memory is called the <em>KV cache</em> (KV means key and value). Fewer distinct key/value sets means a smaller cache.</p>
+<div class="card">
+  <div class="controls">
+    <label>Query heads H <input type="range" id="gH" min="1" max="16" value="8"> <span id="gHv">8</span></label>
+    <label>KV groups G <input type="range" id="gG" min="1" max="8" value="2"> <span id="gGv">2</span></label>
+  </div>
+  <div class="out" id="gOut"></div>
+</div>
+</section>
+
+<!-- ============ TRANSFORMER BLOCK ============ -->
+<section id="block">
+<p class="eyebrow">Part 5</p>
+<h2>The transformer block</h2>
+<p>A block is a stack of a few known pieces. The whole model repeats the block L times, where L is the number of blocks. The lecture's version is <strong>pre-LN</strong>: each sublayer sees a normalized input, and its output is added back to the unnormalized residual stream (the running sum of the token's vector as it moves through the blocks).</p>
+<div class="pipe"><span>input</span><i>→</i><span>LayerNorm</span><i>→</i><span>MHSA</span><i>→ + (residual) →</i><span>LayerNorm</span><i>→</i><span>FFN</span><i>→ + (residual) →</i><span>output</span></div>
+<p class="hint">MHSA = multi-head self-attention. FFN = feed-forward network (Part 7). The "+" steps add the block's input back to its output.</p>
+<ol>
+  <li><strong>Self-attention</strong> mixes information across positions.</li>
+  <li><strong>Layer norm and residual connections</strong> keep the numbers well-scaled and let gradients flow back through many blocks. Layer norm is defined in Part 6.</li>
+  <li><strong>The feed-forward network</strong> transforms each position on its own. No position looks at another here, so all positions can run in parallel.</li>
+</ol>
+<p><strong>Why residuals?</strong> A sublayer computes f(x), and the block returns f(x) + x. If the sublayer does little at first, the output is about x, so the signal passes through unchanged and training stays stable.</p>
+<p><strong>Pre-LN vs post-LN:</strong> pre-LN normalizes before each sublayer (as drawn above). Post-LN normalizes after the add. Pre-LN tends to train more stably, so the lecture uses it.</p>
+</section>
+
+<!-- ============ LAYER NORM ============ -->
+<section id="layernorm">
+<p class="eyebrow">Part 6</p>
+<h2>Layer norm, and the RMSNorm swap</h2>
+<p>Layer norm takes one token's vector h, which has d numbers, and rescales it. It first finds the mean μ of those numbers, then their spread σ. It subtracts the mean, divides by the spread, and then applies a learned scale γ and shift β.</p>
+<div class="formula">μ      = (1/d) · sum over i of h_i
+σ      = sqrt( (1/d) · sum over i of (h_i − μ)² )     (divide by d, as in the lecture)
+LN(h)  = γ ⊙ (h − μ) / σ  +  β</div>
+<p class="hint">⊙ means multiply entry by entry. Here γ and β are vectors with d entries each, so each feature has its own scale and shift. The widget and Q4 use one number for γ and one for β, applied to every entry, which is the same as setting every entry equal.</p>
+<p><strong>RMSNorm</strong> is a simpler version. It divides by the root-mean-square of the entries and skips subtracting the mean. It also drops β. So layer norm learns 2d parameters (γ and β), and RMSNorm learns d (γ only). That difference is what Q3 counts.</p>
+
+<h3>Try it: compute layer norm by hand</h3>
+<div class="card">
+  <p class="hint">Edit h, then set γ (scale) and β (shift). Every step updates live.</p>
+  <div class="grid2">
+    <div><label>h (comma-separated)<br><input type="text" id="lnH" value="7, 2, 2, 2, 2" style="width:100%"></label></div>
+    <div class="controls" style="margin:0">
+      <label>γ (scale) <input type="number" id="lnG" value="3" step="0.5"></label>
+      <label>β (shift) <input type="number" id="lnB" value="1" step="0.5"></label>
+    </div>
+  </div>
+  <div class="out" id="lnOut" style="margin-top:12px"></div>
+</div>
+</section>
+
+<!-- ============ FFN ============ -->
+<section id="ffn">
+<p class="eyebrow">Part 7</p>
+<h2>The feed-forward network and SwiGLU</h2>
+<p>The feed-forward network (FFN) processes each position on its own. The plain version takes a vector x with d numbers, multiplies it by W_1 to get a longer vector with <em>hidden</em> numbers (the hidden width is a size you choose, often larger than d), applies a bend φ such as ReLU (which means max(0, z): negatives become 0), and then multiplies by W_2 to return to d numbers.</p>
+<div class="formula">Plain FFN:  W_2 · φ(W_1 x)           W_1: hidden × d,   W_2: d × hidden</div>
+<p>The modern version, SwiGLU, uses a <strong>gate</strong>. It computes two hidden vectors from x: one goes through a smooth bend called swish, and the other stays linear. They multiply entry by entry, so the first one controls how much of the second gets through:</p>
+<div class="formula">SwiGLU:   W_3 ( φ(W_2 x) ⊙ W_1 x )
+          φ(z) = z · sigmoid(z)       (sigmoid squashes z into (0, 1))
+          W_1: hidden × d,  W_2: hidden × d,  W_3: d × hidden</div>
+<p class="hint">Naming note: W_1 and W_2 have different roles here than in the plain FFN. In SwiGLU, W_2 makes the gate and W_1 makes the value being gated. The lecture also drops the biases, so these three matrices are the only learned parts.</p>
+</section>
+
+<!-- ============ EFFICIENCY ============ -->
+<section id="efficiency">
+<p class="eyebrow">Part 8</p>
+<h2>Cost: how local attention cuts the score table</h2>
+<p>Full attention has a score entry for every pair of positions, so a sequence of length T has T² entries. This is the main cost of attention for long inputs.</p>
+<p>Local attention lets each position look only at a window of w neighbours. The table then has about T · w entries instead. Models often alternate local layers with global layers, so information can still travel across the whole sequence.</p>
+<p>The FFN and attention costs depend on the model width d. For a fixed width, the FFN costs more than attention when T is below about 2d (about 1000 when d = 512). Above that length, attention's T² cost takes over.</p>
+<div class="card">
+  <div class="controls">
+    <label>Sequence length T <input type="range" id="cT" min="64" max="8192" step="64" value="1024"> <span id="cTv">1024</span></label>
+    <label>Window w <input type="range" id="cW" min="16" max="512" step="16" value="128"> <span id="cWv">128</span></label>
+  </div>
+  <div class="out" id="cOut"></div>
+</div>
+</section>
+
+<!-- ============ ENCODER & PRETRAINING ============ -->
+<section id="pretrain">
+<p class="eyebrow">Part 9</p>
+<h2>Encoder-only models and pre-training</h2>
+<p>A <strong>causal mask</strong> is a rule that blocks a position from looking at later positions. With it, position 3 can see only positions 1 to 3. Text generators (such as GPT-style models) use a causal mask, because they write one word at a time and cannot see the future.</p>
+<p>An <strong>encoder-only</strong> transformer has no causal mask, so each token sees the whole input in both directions. That suits tasks that read an input and label it:</p>
+<ul>
+  <li><strong>Sequence labelling:</strong> one label per token (for example, the part of speech of each word).</li>
+  <li><strong>Sequence classification:</strong> one label for the whole input. A special token called <code>&lt;CLS&gt;</code> is added, and its final output is used to classify.</li>
+  <li><strong>Span extraction:</strong> find the start and end positions of an answer inside a context.</li>
+</ul>
+<p>Pre-training teaches the model general language first. The method is <strong>masked language modelling (MLM)</strong>: hide some tokens, and train the model to guess them from all the other tokens, both before and after. BERT does this with a bidirectional encoder.</p>
+<div class="card">
+  <p class="hint">The model sees the sentence with some words replaced by [MASK]. Click any word to mask or unmask it, then press Reveal to see the training targets.</p>
+  <div class="tokens" id="mlm"></div>
+  <div class="controls"><button id="mlmReveal">Reveal targets</button></div>
+  <div class="out" id="mlmOut"></div>
+</div>
+</section>
+
+<!-- ============ QUIZ ============ -->
+<section id="quiz">
+<p class="eyebrow">Practice</p>
+<h2>Lecture 8 practice questions</h2>
+<p>Try each question before opening its worked solution. Enter a number, then check it.</p>
+
+<div class="card">
+  <h3>Q1. SwiGLU parameters</h3>
+  <p>A SwiGLU feed-forward network W_3(φ(W_2x) ⊙ W_1x), with no biases, has d_model = 6 and hidden width 10. How many parameters does it have?</p>
+  <div class="ans"><input type="number" id="a1" placeholder="your answer"><button data-check="a1" data-val="180">Check</button><span class="feedback" id="f1"></span></div>
+  <details><summary>Show worked solution</summary>
+    <div class="out">Shapes come from the Part 7 table: W_1 and W_2 are hidden × d = 10 × 6, and W_3 is d × hidden = 6 × 10.<br>Each matrix has 10 × 6 = 60 entries.<br>Total = 60 + 60 + 60 = <b>180</b>.</div>
+  </details>
+</div>
+
+<div class="card">
+  <h3>Q2. Multiplications for Q, K, V</h3>
+  <p>A single-head self-attention layer has input dimension 8 and d_k = d_v = 4. Count an a×b matrix times a vector as ab multiplications. How many multiplications compute queries, keys and values for all positions of a length-10 sequence?</p>
+  <div class="ans"><input type="number" id="a2" placeholder="your answer"><button data-check="a2" data-val="960">Check</button><span class="feedback" id="f2"></span></div>
+  <details><summary>Show worked solution</summary>
+    <div class="out">Each of W_Q, W_K, W_V has d_k = 4 rows and 8 columns, so each is a 4 × 8 matrix.<br>One matrix times one token vector: 4 × 8 = 32 multiplications.<br>Three matrices per token: 3 × 32 = 96.<br>Ten positions: 96 × 10 = <b>960</b>.</div>
+  </details>
+</div>
+
+<div class="card">
+  <h3>Q3. Layer norms replaced by RMSNorm</h3>
+  <p>A pre-LN transformer has 6 blocks, each with 2 layer norms, plus one final layer norm. The residual dimension is 8. How many parameters are removed if every layer norm is replaced by RMSNorm?</p>
+  <div class="ans"><input type="number" id="a3" placeholder="your answer"><button data-check="a3" data-val="104">Check</button><span class="feedback" id="f3"></span></div>
+  <details><summary>Show worked solution</summary>
+    <div class="out">Number of norms: 6 × 2 + 1 = 13.<br>Residual dimension d = 8.<br>A layer norm learns γ and β, so 2d = 16 parameters. RMSNorm learns only γ, so d = 8.<br>Removed per norm: 16 − 8 = 8.<br>Total removed: 13 × 8 = <b>104</b>.</div>
+  </details>
+</div>
+
+<div class="card">
+  <h3>Q4. First entry of a layer norm output</h3>
+  <p>Layer norm, with σ computed by dividing by d as in the lecture, is applied to h = (7, 2, 2, 2, 2), with γ = 3 and β = 1. What is the first entry of the output?</p>
+  <div class="ans"><input type="number" id="a4" placeholder="your answer" step="any"><button data-check="a4" data-val="7">Check</button><span class="feedback" id="f4"></span></div>
+  <details><summary>Show worked solution</summary>
+    <div class="out">Count the entries: d = 5.<br>Mean: μ = (7 + 2 + 2 + 2 + 2) / 5 = 15 / 5 = 3.<br>Deviations h − μ: (4, −1, −1, −1, −1).<br>Squares: 16, 1, 1, 1, 1, which sum to 20.<br>Variance: 20 / d = 20 / 5 = 4.<br>σ = √4 = 2.<br>First normalized entry: 4 / 2 = 2.<br>Output: γ · 2 + β = 3 · 2 + 1 = <b>7</b>.</div>
+  </details>
+</div>
+</section>
+
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const fmt = (x, d = 2) => Number(x).toFixed(d);
+  const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+  function softmax(a) { const m = Math.max(...a); const e = a.map(x => Math.exp(x - m)); const s = e.reduce((p, c) => p + c, 0); return e.map(x => x / s); }
+  function bars(labels, weights) {
+    return labels.map((wd, j) => `
+      <div class="bar-row"><span>${wd}</span>
+        <div class="track"><div class="fill" style="width:${(weights[j] * 100).toFixed(1)}%"></div></div>
+        <span class="num">${fmt(weights[j])}</span></div>`).join("");
+  }
+
+  // ---------- Part 1: single-query attention demo ----------
+  const words = ["the", "cat", "sat", "on", "mat"];
+  const vecs = [[0.9, 0.1], [0.2, 0.9], [0.7, 0.6], [0.3, 0.2], [0.8, 0.4]];
+  let attnQ = 1;
+  function renderAttn() {
+    const q = vecs[attnQ];
+    const scores = vecs.map(k => dot(q, k) / Math.sqrt(2));
+    const w = softmax(scores);
+    const out = [0, 0];
+    w.forEach((wi, j) => { out[0] += wi * vecs[j][0]; out[1] += wi * vecs[j][1]; });
+    $("attnBars").innerHTML = bars(words, w);
+    $("attnOut").innerHTML =
+      `query = <b>${words[attnQ]}</b> ${JSON.stringify(q)}<br>` +
+      `scores = q · k / √2 : ${scores.map(s => fmt(s)).join(", ")}<br>` +
+      `softmax weights sum to ${fmt(w.reduce((a, b) => a + b, 0), 3)}<br>` +
+      `output = sum of weight × value = <b>[${fmt(out[0])}, ${fmt(out[1])}]</b>`;
+  }
+  $("attnQ").innerHTML = words.map((wd, i) => `<button data-q="${i}">${wd}</button>`).join("");
+  $("attnQ").addEventListener("click", e => {
+    const i = e.target.getAttribute("data-q"); if (i === null) return;
+    attnQ = +i;
+    [...$("attnQ").querySelectorAll("button")].forEach((b, k) => b.classList.toggle("on", k === attnQ));
+    renderAttn();
+  });
+  $("attnQ").querySelectorAll("button")[attnQ].classList.add("on");
+  renderAttn();
+
+  // ---------- Part 3: self-attention over a sentence ----------
+  const sent = ["The", "animal", "didn't", "cross", "the", "street", "because", "it", "was", "tired"];
+  const emb = sent.map((_, i) => [Math.sin(i * 1.7 + 0.3) * 0.9, Math.cos(i * 0.9 + 1.1) * 0.9]);
+  emb[7] = [emb[1][0] * 0.95 + 0.05, emb[1][1] * 0.95 + 0.05]; // "it" set close to "animal" on purpose
+  let selfQ = 7;
+  function renderSelf() {
+    const q = emb[selfQ];
+    const s = emb.map(k => dot(q, k) / Math.sqrt(2));
+    const w = softmax(s);
+    $("sentence").innerHTML = sent.map((wd, i) =>
+      `<span class="tok${i === selfQ ? " sel" : ""}" data-i="${i}">${wd}</span>`).join("");
+    $("selfBars").innerHTML = bars(sent, w);
+    const top = w.indexOf(Math.max(...w));
+    $("selfOut").innerHTML =
+      `This row is for <b>"${sent[selfQ]}"</b> as the query. Its weights add up to ${fmt(w.reduce((a, b) => a + b, 0), 3)}.<br>` +
+      `Largest weight: <b>"${sent[top]}"</b> (${fmt(w[top])}).`;
+  }
+  $("sentence").addEventListener("click", e => {
+    const t = e.target.closest(".tok"); if (!t) return;
+    selfQ = +t.getAttribute("data-i"); renderSelf();
+  });
+  renderSelf();
+
+  // ---------- Part 4: heads and groups ----------
+  function renderGQA() {
+    const H = +$("gH").value, G = Math.min(+$("gG").value, H);
+    $("gHv").textContent = H; $("gGv").textContent = G;
+    const d = 512, headWidth = d / H;
+    const kvGQA = 2 * G * headWidth;              // stored key and value numbers per token per layer
+    const kvMHA = 2 * H * headWidth;
+    $("gOut").innerHTML =
+      `Query heads: <b>${H}</b>, each with its own query matrix<br>` +
+      `Each head is ${d} / ${H} = <b>${fmt(headWidth, 0)}</b> numbers wide<br>` +
+      `KV groups: <b>${G}</b> (G is capped at H, so G = ${G} here), each shared by ${fmt(H / G, 1)} query heads<br>` +
+      `KV cache per token per layer: <b>${kvGQA}</b> numbers, vs ${kvMHA} with one KV set per head<br>` +
+      `Cache reduction: <b>${fmt(kvMHA / kvGQA, 1)}×</b>`;
+  }
+  $("gH").addEventListener("input", renderGQA);
+  $("gG").addEventListener("input", renderGQA);
+  renderGQA();
+
+  // ---------- Part 6: layer norm ----------
+  function renderLN() {
+    const raw = $("lnH").value.split(",").map(s => parseFloat(s)).filter(x => !Number.isNaN(x));
+    const g = parseFloat($("lnG").value) || 0, b = parseFloat($("lnB").value) || 0;
+    if (raw.length === 0) { $("lnOut").textContent = "Enter numbers separated by commas."; return; }
+    const d = raw.length;
+    const mu = raw.reduce((a, c) => a + c, 0) / d;
+    const sigma = Math.sqrt(raw.reduce((a, c) => a + (c - mu) ** 2, 0) / d);
+    if (sigma === 0) {
+      $("lnOut").innerHTML = `d = ${d}<br>μ = <b>${fmt(mu, 3)}</b><br>σ = 0. All entries are equal, so layer norm cannot divide by σ.`;
+      return;
+    }
+    const norm = raw.map(x => (x - mu) / sigma);
+    const out = norm.map(z => g * z + b);
+    $("lnOut").innerHTML =
+      `d = ${d}<br>` +
+      `μ = mean = <b>${fmt(mu, 3)}</b><br>` +
+      `σ = spread = <b>${fmt(sigma, 3)}</b><br>` +
+      `(h − μ) / σ = [${norm.map(z => fmt(z, 3)).join(", ")}]<br>` +
+      `output = γ · (h − μ)/σ + β = <b>[${out.map(z => fmt(z, 3)).join(", ")}]</b>`;
+  }
+  ["lnH", "lnG", "lnB"].forEach(id => $(id).addEventListener("input", renderLN));
+  renderLN();
+
+  // ---------- Part 8: cost ----------
+  function renderCost() {
+    const T = +$("cT").value, w = +$("cW").value;
+    $("cTv").textContent = T; $("cWv").textContent = w;
+    const full = T * T, local = T * Math.min(w, T);
+    $("cOut").innerHTML =
+      `Full attention score entries: T² = ${T} × ${T} = <b>${full.toLocaleString()}</b><br>` +
+      `Local attention score entries: T · w = ${T} × ${w} = <b>${local.toLocaleString()}</b><br>` +
+      `Ratio T / w = <b>${fmt(full / local, 1)}×</b> fewer entries with local attention`;
+  }
+  $("cT").addEventListener("input", renderCost);
+  $("cW").addEventListener("input", renderCost);
+  renderCost();
+
+  // ---------- Part 9: MLM ----------
+  const mlmWords = ["the", "cat", "sat", "on", "the", "mat"];
+  const masked = { 1: true, 4: true };
+  let revealed = false;
+  function renderMLM() {
+    $("mlm").innerHTML = mlmWords.map((wd, i) =>
+      `<span class="tok${masked[i] ? " sel" : ""}" data-i="${i}">${masked[i] ? "[MASK]" : wd}</span>`).join("");
+    const shown = mlmWords.map((wd, i) => masked[i] ? "[MASK]" : wd).join(" ");
+    const maskedIdx = Object.keys(masked).map(Number).sort((a, b) => a - b);
+    let text = `Model input: ${shown}<br>Masked positions: ${maskedIdx.map(i => i + 1).join(", ") || "none"}`;
+    if (revealed && maskedIdx.length) {
+      text += "<br>Training targets (what the model is trained to guess):<br>" +
+        maskedIdx.map(i => `position ${i + 1}: <b>${mlmWords[i]}</b>`).join("<br>");
+    } else if (maskedIdx.length) {
+      text += "<br>Press Reveal targets to see the answers.";
+    }
+    $("mlmOut").innerHTML = text;
+  }
+  $("mlm").addEventListener("click", e => {
+    const t = e.target.closest(".tok"); if (!t) return;
+    const i = +t.getAttribute("data-i");
+    if (masked[i]) delete masked[i]; else masked[i] = true;
+    renderMLM();
+  });
+  $("mlmReveal").addEventListener("click", () => { revealed = !revealed; $("mlmReveal").textContent = revealed ? "Hide targets" : "Reveal targets"; renderMLM(); });
+  renderMLM();
+
+  // ---------- Quiz ----------
+  document.querySelectorAll("button[data-check]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-check");
+      const want = parseFloat(btn.getAttribute("data-val"));
+      const got = parseFloat($(id).value);
+      const f = $("f" + id.slice(1));
+      if (Number.isNaN(got)) { f.className = "feedback no"; f.textContent = "Enter a number first."; return; }
+      if (Math.abs(got - want) < 1e-6) { f.className = "feedback ok"; f.textContent = "Correct."; }
+      else { f.className = "feedback no"; f.textContent = "Not quite. Open the worked solution and compare."; }
+    });
+  });
+})();
+</script>
+</body>
+</html>
